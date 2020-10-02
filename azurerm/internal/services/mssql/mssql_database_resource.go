@@ -442,7 +442,8 @@ func resourceArmMsSqlDatabaseCreateUpdate(d *schema.ResourceData, meta interface
 		}
 	}
 
-	if v, ok := d.GetOk("long_term_retention_policy"); ok {
+	if d.HasChange("long_term_retention_policy") {
+		v := d.Get("long_term_retention_policy")
 		longTermRetentionProps := helper.ExpandLongTermRetentionPolicy(v.([]interface{}))
 		if longTermRetentionProps != nil {
 			longTermRetentionPolicy := sql.BackupLongTermRetentionPolicy{
@@ -476,7 +477,8 @@ func resourceArmMsSqlDatabaseCreateUpdate(d *schema.ResourceData, meta interface
 			}
 		}
 	*/
-	if v, ok := d.GetOk("retention_days"); ok {
+	if d.HasChange("short_term_retention_policy") {
+		v := d.Get("short_term_retention_policy")
 		backupShortTermPolicyProps := helper.ExpandShortTermRetentionPolicy(v.([]interface{}))
 		if backupShortTermPolicyProps != nil {
 			backupShortTermPolicy := sql.BackupShortTermRetentionPolicy{

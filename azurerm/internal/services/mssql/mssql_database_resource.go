@@ -479,6 +479,7 @@ func resourceArmMsSqlDatabaseCreateUpdate(d *schema.ResourceData, meta interface
 			}
 		}
 	*/
+
 	if d.HasChange("short_term_retention_policy") {
 		v := d.Get("short_term_retention_policy")
 		backupShortTermPolicyProps := helper.ExpandShortTermRetentionPolicy(v.([]interface{}))
@@ -572,6 +573,7 @@ func resourceArmMsSqlDatabaseRead(d *schema.ResourceData, meta interface{}) erro
 		return fmt.Errorf("failure in setting `extended_auditing_policy`: %+v", err)
 	}
 
+	// Hyper Scale SKU's do not currently support LRP and do not honour normal SRP operations
 	if !strings.HasPrefix(skuName, "HS") {
 		longTermPolicy, err := longTermRetentionClient.Get(ctx, id.ResourceGroup, id.MsSqlServer, id.Name)
 		if err != nil {
@@ -581,18 +583,16 @@ func resourceArmMsSqlDatabaseRead(d *schema.ResourceData, meta interface{}) erro
 		if err := d.Set("long_term_retention_policy", flattenlongTermPolicy); err != nil {
 			return fmt.Errorf("failure in setting `long_term_retention_policy`: %+v", err)
 		}
-	}
 
+		shortTermPolicy, err := shortTermRetentionClient.Get(ctx, id.ResourceGroup, id.MsSqlServer, id.Name)
+		if err != nil {
+			return fmt.Errorf("Error retrieving Short Term Policies for Database %q (Sql Server %q ;Resource Group %q): %+v", id.Name, id.MsSqlServer, id.ResourceGroup, err)
+		}
 
-
-	shortTermPolicy, err := shortTermRetentionClient.Get(ctx, id.ResourceGroup, id.MsSqlServer, id.Name)
-	if err != nil {
-		return fmt.Errorf("Error retrieving Short Term Policies for Database %q (Sql Server %q ;Resource Group %q): %+v", id.Name, id.MsSqlServer, id.ResourceGroup, err)
-	}
-
-	flattenShortTermPolicy := helper.FlattenShortTermRetentionPolicy(&shortTermPolicy, d)
-	if err := d.Set("short_term_retention_policy", flattenShortTermPolicy); err != nil {
-		return fmt.Errorf("failure in setting `short_term_retention_policy`: %+v", err)
+		flattenShortTermPolicy := helper.FlattenShortTermRetentionPolicy(&shortTermPolicy, d)
+		if err := d.Set("short_term_retention_policy", flattenShortTermPolicy); err != nil {
+			return fmt.Errorf("failure in setting `short_term_retention_policy`: %+v", err)
+		}
 	}
 
 	return tags.FlattenAndSet(d, resp.Tags)

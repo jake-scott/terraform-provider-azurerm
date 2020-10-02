@@ -534,6 +534,7 @@ func resourceArmMsSqlDatabaseRead(d *schema.ResourceData, meta interface{}) erro
 	}
 	d.Set("server_id", serverResp.ID)
 
+	skuName := ""
 	if props := resp.DatabaseProperties; props != nil {
 		d.Set("auto_pause_delay_in_minutes", props.AutoPauseDelay)
 		d.Set("collation", props.Collation)
@@ -549,6 +550,7 @@ func resourceArmMsSqlDatabaseRead(d *schema.ResourceData, meta interface{}) erro
 		} else if props.ReadScale == sql.DatabaseReadScaleDisabled {
 			d.Set("read_scale", false)
 		}
+		skuName = *props.CurrentServiceObjectiveName
 		d.Set("sku_name", props.CurrentServiceObjectiveName)
 		d.Set("zone_redundant", props.ZoneRedundant)
 	}
@@ -570,15 +572,18 @@ func resourceArmMsSqlDatabaseRead(d *schema.ResourceData, meta interface{}) erro
 		return fmt.Errorf("failure in setting `extended_auditing_policy`: %+v", err)
 	}
 
-	longTermPolicy, err := longTermRetentionClient.Get(ctx, id.ResourceGroup, id.MsSqlServer, id.Name)
-	if err != nil {
-		return fmt.Errorf("Error retrieving Long Term Policies for Database %q (Sql Server %q ;Resource Group %q): %+v", id.Name, id.MsSqlServer, id.ResourceGroup, err)
+	if !strings.HasPrefix(skuName, "HS") {
+		longTermPolicy, err := longTermRetentionClient.Get(ctx, id.ResourceGroup, id.MsSqlServer, id.Name)
+		if err != nil {
+			return fmt.Errorf("Error retrieving Long Term Policies for Database %q (Sql Server %q ;Resource Group %q): %+v", id.Name, id.MsSqlServer, id.ResourceGroup, err)
+		}
+		flattenlongTermPolicy := helper.FlattenLongTermRetentionPolicy(&longTermPolicy, d)
+		if err := d.Set("long_term_retention_policy", flattenlongTermPolicy); err != nil {
+			return fmt.Errorf("failure in setting `long_term_retention_policy`: %+v", err)
+		}
 	}
 
-	flattenlongTermPolicy := helper.FlattenLongTermRetentionPolicy(&longTermPolicy, d)
-	if err := d.Set("long_term_retention_policy", flattenlongTermPolicy); err != nil {
-		return fmt.Errorf("failure in setting `long_term_retention_policy`: %+v", err)
-	}
+
 
 	shortTermPolicy, err := shortTermRetentionClient.Get(ctx, id.ResourceGroup, id.MsSqlServer, id.Name)
 	if err != nil {

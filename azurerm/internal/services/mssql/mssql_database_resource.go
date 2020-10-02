@@ -391,9 +391,10 @@ func resourceArmMsSqlDatabaseCreateUpdate(d *schema.ResourceData, meta interface
 		params.DatabaseProperties.RestorePointInTime = &date.Time{Time: restorePointInTime}
 	}
 
-	if v, ok := d.GetOk("sku_name"); ok {
+	skuName, ok := d.GetOk("sku_name")
+	if ok {
 		params.Sku = &sql.Sku{
-			Name: utils.String(v.(string)),
+			Name: utils.String(skuName.(string)),
 		}
 	}
 
@@ -442,7 +443,8 @@ func resourceArmMsSqlDatabaseCreateUpdate(d *schema.ResourceData, meta interface
 		}
 	}
 
-	if d.HasChange("long_term_retention_policy") {
+	// hyper-scale SKU's do not support LRP currently
+	if d.HasChange("long_term_retention_policy") && !strings.HasPrefix(skuName.(string), "HS") {
 		v := d.Get("long_term_retention_policy")
 		longTermRetentionProps := helper.ExpandLongTermRetentionPolicy(v.([]interface{}))
 		if longTermRetentionProps != nil {
